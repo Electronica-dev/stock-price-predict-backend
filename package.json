@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "engines": {
-    "node": "12.x"
+    "node": "12.x",
+    "python3": "3.x"
   },
   "scripts": {
     "start": "node index.js",

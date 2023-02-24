@@ -7,9 +7,6 @@ Created on Thu Jan 13 12:07:58 2022
 import pandas as pd
 from sklearn import linear_model
 from sklearn.model_selection import train_test_split
-import datetime as dt
-# import pandas_ta
-import matplotlib.pyplot as plt
 import sys
 import json
 
