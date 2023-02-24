@@ -4,7 +4,7 @@ const app = express()
 const cors = require('cors')
 const { fs, vol } = require('memfs')
 const https = require('https')
-const api_key = process.env.REACT_APP_API_KEY
+const api_key = process.env.YAHOO_FINANCE_API_KEY
 
 app.use(cors())
 
@@ -106,7 +106,7 @@ app.get('/api/stock/predict/:symbol-:interval-:price-:no_of_candles', (request, 
 
     let options = {
       mode: 'json',
-      pythonPath: 'python',
+      pythonPath: 'python3',
       pythonOptions: ['-u'], // get print results in real-time
       args: [JSON.stringify(close), price, candles]
     };
@@ -123,7 +123,7 @@ app.get('/api/stock/predict/:symbol-:interval-:price-:no_of_candles', (request, 
 
 })
 
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
