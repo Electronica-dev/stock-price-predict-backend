@@ -12,10 +12,10 @@ const download = (url, dest, cb) => {
   var file = vol.createWriteStream(dest);
 
   var req = https.get(url, function(res) {
-    res.pipe(file);
-    file.on('finish', function() {
-      file.close(cb(dest));  // close() is async, call cb after close completes.
-    });
+      res.pipe(file);
+      file.on('finish', function() {
+        file.close(cb(dest));  // close() is async, call cb after close completes.
+      });
     }).on('error', function(err) { // Handle errors
       fs.unlink(dest); // Delete the file async. (But we don't check the result)
     });
@@ -46,13 +46,6 @@ const getHistory = (interval, symbol, cb) => {
     });
   })
 }
-
-app.get('/api/stock/key', (request, response) => {
-  console.log(api_key);
-  response.send(
-    `<p>${api_key}</p>`
-  )
-})
 
 app.get('/api/stock/bse', (request, response) => {
 

@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: backend
+    env: node
+    repo: https://github.com/Electronica-dev/stock-price-predict-backend.git
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: YAHOO_FINANCE_API_KEY
+        value: K6ql6aRW6M9WErqdMMak63Zt9GrFteoa57xhYI1L
+
+  - type: web
+    name: pythonenv
+    env: python
+    buildCommand: pip install pandas scikit-learn json
