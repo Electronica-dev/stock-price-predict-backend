@@ -107,10 +107,11 @@ app.get('/api/stock/predict/:symbol-:interval-:price-:no_of_candles', (request, 
       ],
     );
     process.stdout.on('data', function (data) {
-      response.send(JSON.parse(data.toString()));
+      response.status(200).send(JSON.parse(data.toString()));
       response.end()
     });
     process.on('error', (err) => {
+      response.status(401).send('Unable to parse request.')
       console.log(`Error: ${err}`);
     })
   }
