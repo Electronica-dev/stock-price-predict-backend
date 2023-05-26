@@ -97,20 +97,42 @@ app.get('/api/stock/predict/:symbol-:interval-:price-:no_of_candles', (request, 
 
     const close = {"close": JSON.parse(body)[symbol].close}
 
-    let options = {
-      mode: 'json',
-      pythonPath: 'python3',
-      pythonOptions: ['-u'], // get print results in real-time
-      args: [JSON.stringify(close), price, candles]
-    };
-
-    PythonShell.run('prediction_model.py', options, function (err, results) {
-      if (err) throw err;
-      response.send(results)
+    var spawn = require('child_process').spawn;
+    var process = spawn('python3',
+      [
+        "./prediction_model.py",
+        JSON.stringify(close),
+        price,
+        candles
+      ],
+    );
+    process.stdout.on('data', function (data) {
+      response.send(JSON.parse(data.toString()));
       response.end()
     });
-
+    process.on('error', (err) => {
+      console.log(`Error: ${err}`);
+    })
   }
+
+  // const predict = (body) => {
+
+  //   const close = {"close": JSON.parse(body)[symbol].close}
+
+  //   let options = {
+  //     mode: 'json',
+  //     pythonPath: 'python3',
+  //     pythonOptions: ['-u'], // get print results in real-time
+  //     args: [JSON.stringify(close), price, candles]
+  //   };
+
+  //   PythonShell.run('prediction_model.py', options, function (err, results) {
+  //     if (err) throw err;
+  //     response.send(results)
+  //     response.end()
+  //   });
+
+  // }
 
   getHistory(interval, symbol, predict)
 
