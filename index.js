@@ -1,145 +1,162 @@
-const { PythonShell } = require('python-shell')
-const express = require('express')
-const app = express()
-const cors = require('cors')
-const { fs, vol } = require('memfs')
-const https = require('https')
-const api_key = process.env.YAHOO_FINANCE_API_KEY
+const { PythonShell } = require("python-shell");
+const express = require("express");
+const app = express();
+const cors = require("cors");
+const { fs, vol } = require("memfs");
+const realFs = require("fs");
+const https = require("https");
+const api_key = process.env.YAHOO_FINANCE_API_KEY;
+const path = require("path");
+const papa = require("papaparse");
 
-app.use(cors())
+app.use(cors());
 
 const download = (url, dest, cb) => {
   var file = vol.createWriteStream(dest);
 
-  var req = https.get(url, function(res) {
+  var req = https
+    .get(url, function (res) {
       res.pipe(file);
-      file.on('finish', function() {
-        file.close(cb(dest));  // close() is async, call cb after close completes.
+      file.on("finish", function () {
+        file.close(cb(dest)); // close() is async, call cb after close completes.
       });
-    }).on('error', function(err) { // Handle errors
+    })
+    .on("error", function (err) {
+      // Handle errors
       fs.unlink(dest); // Delete the file async. (But we don't check the result)
     });
 };
 
 const getHistory = (interval, symbol, cb) => {
+  const path = `/v8/finance/spark?interval=${interval}&range=max&symbols=${symbol}`;
 
-  const path = `/v8/finance/spark?interval=${interval}&range=max&symbols=${symbol}`
-
-  let body = ''
+  let body = "";
 
   const options = {
-    host: 'yfapi.net',
+    host: "yfapi.net",
     path: path,
     headers: {
-      'Accept': 'application/json',
-      'x-api-key': `${api_key}`
-    }
+      Accept: "application/json",
+      "x-api-key": `${api_key}`,
+    },
   };
   const req = https.get(options, function (res) {
-    res.setEncoding('utf8');
-    res.on('data', function (chunk) {
-      body = body.concat(chunk)
-    }).on('end', () => {
-      cb(body)
-    }).on('error', function(e) {
-      console.log("Got error: " + e.message);
-    });
-  })
-}
+    res.setEncoding("utf8");
+    res
+      .on("data", function (chunk) {
+        body = body.concat(chunk);
+      })
+      .on("end", () => {
+        cb(body);
+      })
+      .on("error", function (e) {
+        console.log("Got error: " + e.message);
+      });
+  });
+};
 
-app.get('/api/stock/bse', (request, response) => {
-
-  let bseFinalJson = []
+app.get("/api/stock/bse", (request, response) => {
+  let bseFinalJson = [];
 
   const getBseStocks = (dest) => {
-    const re = /(?<=\d{6},).*(?=,.*,Active)/g;
-    const bseJson = vol.toJSON()
-    const bseStocks = bseJson[dest].match(re)
-    bseStocks.forEach(x => {
-        if(x[0] === '"')
-          bseFinalJson = bseFinalJson.concat({label: x.split(",")[2], value: x.split(",")[0].slice(1,), exchange: 'BSE'})
-        else
-          bseFinalJson = bseFinalJson.concat({label: x.split(",")[1], value: x.split(",")[0], exchange: 'BSE'})
-      }
-    )
-    response.json(bseFinalJson)
-    response.end()
-  }
-  download('https://api.bseindia.com/BseIndiaAPI/api/LitsOfScripCSVDownload/w?segment=Equity&status=Active', '/bse.csv', getBseStocks)
-})
+    const file = realFs.readFileSync(
+      path.join(__dirname, dest),
+      "utf-8"
+    );
 
-app.get('/api/stock/nse', (request, response) => {
+    const bseStocks = papa.parse(file, { header: true });
+    bseStocks.data.forEach((x) => {
+      bseFinalJson = bseFinalJson.concat({
+        label: x["Issuer Name"],
+        value: x["Security Code"],
+        exchange: "BSE",
+      });
+    });
 
-  let nseFinalJson = []
+    response.json(bseFinalJson);
+    response.end();
+  };
+  getBseStocks("./bse_28_01_2024.csv");
+});
+
+app.get("/api/stock/nse", (request, response) => {
+  let nseFinalJson = [];
 
   const getNseStocks = (dest) => {
     const re = /(?<=\n).*(?=,[A-Z]{2},)/g;
-    const nseJson = vol.toJSON()
-    const nseStocks = nseJson[dest].match(re)
-    nseStocks.forEach(x => {
-        nseFinalJson = nseFinalJson.concat( {label: x.split(",")[0], value: x.split(",")[1], exchange: 'NSE'} )
-      }
-    )
-    response.json(nseFinalJson)
-    response.end()
-  }
-  download('https://archives.nseindia.com/content/equities/EQUITY_L.csv', '/nse.csv', getNseStocks)
-})
+    const nseJson = vol.toJSON();
+    const nseStocks = nseJson[dest].match(re);
 
-app.get('/api/stock/predict/:symbol-:interval-:price-:no_of_candles', (request, response) => {
+    nseStocks.forEach((x) => {
+      nseFinalJson = nseFinalJson.concat({
+        label: x.split(",")[0],
+        value: x.split(",")[1],
+        exchange: "NSE",
+      });
+    });
 
-  const symbol = request.params.symbol
-  const interval = request.params.interval
-  const price = parseInt(request.params.price)
-  const candles = parseInt(request.params.no_of_candles)
+    response.json(nseFinalJson);
+    response.end();
+  };
+  download(
+    "https://archives.nseindia.com/content/equities/EQUITY_L.csv",
+    "/nse.csv",
+    getNseStocks
+  );
+});
 
-  const predict = (body) => {
+app.get(
+  "/api/stock/predict/:symbol-:interval-:price-:no_of_candles",
+  (request, response) => {
+    const symbol = request.params.symbol;
+    const interval = request.params.interval;
+    const price = parseInt(request.params.price);
+    const candles = parseInt(request.params.no_of_candles);
 
-    const close = {"close": JSON.parse(body)[symbol].close}
+    const predict = (body) => {
+      const close = { close: JSON.parse(body)[symbol].close };
 
-    var spawn = require('child_process').spawn;
-    var process = spawn('python3',
-      [
+      var spawn = require("child_process").spawn;
+      var process = spawn("python3", [
         "./prediction_model.py",
         JSON.stringify(close),
         price,
-        candles
-      ],
-    );
-    process.stdout.on('data', function (data) {
-      response.status(200).send(JSON.parse(data.toString()));
-      response.end()
-    });
-    process.on('error', (err) => {
-      response.status(401).send('Unable to parse request.')
-      console.log(`Error: ${err}`);
-    })
+        candles,
+      ]);
+      process.stdout.on("data", function (data) {
+        response.status(200).send(JSON.parse(data.toString()));
+        response.end();
+      });
+      process.on("error", (err) => {
+        response.status(401).send("Unable to parse request.");
+        console.log(`Error: ${err}`);
+      });
+    };
+
+    // const predict = (body) => {
+
+    //   const close = {"close": JSON.parse(body)[symbol].close}
+
+    //   let options = {
+    //     mode: 'json',
+    //     pythonPath: 'python3',
+    //     pythonOptions: ['-u'], // get print results in real-time
+    //     args: [JSON.stringify(close), price, candles]
+    //   };
+
+    //   PythonShell.run('prediction_model.py', options, function (err, results) {
+    //     if (err) throw err;
+    //     response.send(results)
+    //     response.end()
+    //   });
+
+    // }
+
+    getHistory(interval, symbol, predict);
   }
+);
 
-  // const predict = (body) => {
-
-  //   const close = {"close": JSON.parse(body)[symbol].close}
-
-  //   let options = {
-  //     mode: 'json',
-  //     pythonPath: 'python3',
-  //     pythonOptions: ['-u'], // get print results in real-time
-  //     args: [JSON.stringify(close), price, candles]
-  //   };
-
-  //   PythonShell.run('prediction_model.py', options, function (err, results) {
-  //     if (err) throw err;
-  //     response.send(results)
-  //     response.end()
-  //   });
-
-  // }
-
-  getHistory(interval, symbol, predict)
-
-})
-
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
+  console.log(`Server running on port ${PORT}`);
+});
